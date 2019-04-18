@@ -21,4 +21,9 @@ We replaced categorical variables with unknown and numerical variables with 0.
 * After analyzing data set provide solution to improve the service so that they can bridge the gap between 
 customer expectation and the service provided.
 <h1>
+      
+ # Dataset Link
+ *https://www.kaggle.com/olistbr/brazilian-ecommerce
+ *I'm not actually sure that this is it, please confirm or correct. 
+ <h1>
 
