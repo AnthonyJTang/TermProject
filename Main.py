@@ -1,9 +1,8 @@
 import math
 import sys
 import getopt
-import cv2
 import random
-import pandas as pd 
+import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
@@ -67,7 +66,6 @@ total_orders['del_time_range'] = del_bucket
 # analyse data if we want to -- pending for the report will do later
 
 
-
 total_orders_req_col = total_orders.drop(columns=["order_status","order_delivered_carrier_date","order_purchase_timestamp",
            "order_approved_at","customer_zip_code_prefix","customer_unique_id",
            "customer_city","review_id","review_comment_title","review_comment_message",
@@ -79,14 +77,16 @@ total_orders_req_col = total_orders.drop(columns=["order_status","order_delivere
     
 total_orders_req_col["delevery_days"] = pd.to_numeric(total_orders_req_col["delevery_days"])
 total_orders_req_col = total_orders_req_col.fillna(0)
+
 train=total_orders_req_col.sample(frac=0.8,random_state=200)
 test=total_orders_req_col.drop(train.index)
 
 
-#f, ax = plt.subplots(figsize=(10, 8))
-#corr = total_orders_req_col.corr()
-#sns.heatmap(corr, mask=np.zeros_like(corr, dtype=np.bool), cmap=sns.diverging_palette(220, 10, as_cmap=True),
- #           square=True, ax=ax)
+f, ax = plt.subplots(figsize=(10, 8))
+corr = total_orders_req_col.corr()
+sns.heatmap(corr, mask=np.zeros_like(corr, dtype=np.bool), cmap=sns.diverging_palette(220, 10, as_cmap=True),
+            square=True, ax=ax)
+
 
 Y_test =  test[test.columns[0]]
 X_test =  test[test.columns[1:7]]
@@ -101,12 +101,7 @@ regressor.fit(X_train, Y_train)
 predictions = regressor.predict(X_test)
 accuracy = regressor.score(X_test,Y_test)
 print("Linear model accuracy is = " + str(accuracy*100),'%')
-#plt.scatter(Y_test,predictions)
-#plt.plot(X_test, regressor.predict(X_test), color='red',linewidth=3)
-#plt.scatter(X_test, Y_test)
-#plt.plot(Y_test,predictions)
-#plt.show()
-#print(predictions)
+
 
 # new derived data frame 
 
@@ -140,48 +135,86 @@ new_total_orders["delta_time"] =  pd.to_numeric(new_total_orders["delta_time"])
 new_total_orders["estimated_del_days"] =  pd.to_numeric(new_total_orders["estimated_del_days"])
 
 new_review_score = []
-for x in total_orders['review_score']:
-    if x < 1.5:
-        new_review_score.append(0)
-    elif x< 3.5:
-        new_review_score.append(1)
-    else:
-        new_review_score.append(2)
+#for x in total_orders['review_score']:
+#    if x < 1.5:
+#        new_review_score.append(0)
+#    elif x< 3.5:
+#        new_review_score.append(1)
+#    else:
+#        new_review_score.append(2)
 
+
+for x in total_orders['review_score']:
+    if x < 3:
+        new_review_score.append(0)
+    else:
+        new_review_score.append(1)
+        
 new_total_orders["review_score"] =  new_review_score
 new_total_orders["review_score"] =  pd.to_numeric(new_total_orders["review_score"])
 new_total_orders = new_total_orders.fillna(0)
 
 
-#f, ax = plt.subplots(figsize=(10, 8))
-#corr = new_total_orders.corr()
-#sns.heatmap(corr, mask=np.zeros_like(corr, dtype=np.bool), cmap=sns.diverging_palette(220, 10, as_cmap=True),
-#            square=True, ax=ax)
+f, ax = plt.subplots(figsize=(10, 8))
+corr = new_total_orders.corr()
+sns.heatmap(corr, mask=np.zeros_like(corr, dtype=np.bool), cmap=sns.diverging_palette(220, 10, as_cmap=True),
+            square=True, ax=ax)
+
 
 # apply all the models on the new data set 
 train=new_total_orders.sample(frac=0.8,random_state=200)
+train = train.drop(['price'], axis= 1)
 test=new_total_orders.drop(train.index)
 
+
 Y_test =  test[test.columns[0]]
-X_test =  test[test.columns[1:13]]
+X_test =  test[test.columns[1:12]]
 
 Y_train =  train[train.columns[0]]
-X_train =  train[train.columns[1:13]]
+X_train =  train[train.columns[1:12]]
 
 # linear regression 
-
 from sklearn.linear_model import LinearRegression
 regressor = LinearRegression()
 regressor.fit(X_train, Y_train)
 predictions = regressor.predict(X_test)
 accuracy = regressor.score(X_test,Y_test)
-print("Linear model accuracy is = " + str(accuracy*100),'%')
+print("Linear model accuracy after induced columns= " + str(accuracy*100),'%')
 
 # logistic regression
 new_total_orders['review_score'] = new_total_orders['review_score'].astype('category')
 from sklearn.linear_model import LogisticRegression
-classifier = LogisticRegression()
+classifier = LogisticRegression(C=10000, solver='liblinear')
 classifier.fit(X_train, Y_train)
+
+predictions = classifier.predict(X_test)
+
+from sklearn.metrics import confusion_matrix
+cm = confusion_matrix(Y_test, predictions)
+print ("True Positive --" +str(cm[1][1]))
+print ("False Positive --" + str(cm[1][0]))
+print ("True negetive --" + str(cm[0][1]))
+print ("False negetive --" + str(cm[0][0]))
+
+#print(cm)
+#cm.plot()
 
 accuracy = classifier.score(X_test,Y_test)
 print("Logistic model accuracy is = " + str(accuracy*100),'%')
+
+#Random Forest Model
+from sklearn.ensemble import RandomForestClassifier
+rf = RandomForestClassifier(n_estimators= 25, max_depth= None,max_features = 0.4,random_state= 11 )
+rf.fit(X_train, Y_train)
+accuracy = rf.score(X_test,Y_test)
+print(" ")
+print("Random Forest(ensemble learning)  model accuracy is = " + str(accuracy*100),'%')
+predictions = rf.predict(X_test)
+
+from sklearn.metrics import confusion_matrix
+cm = confusion_matrix(Y_test, predictions)
+print ("True Positive --" +str(cm[1][1]))
+print ("False Positive --" + str(cm[1][0]))
+print ("True negetive --" + str(cm[0][1]))
+print ("False negetive --" + str(cm[0][0]))
+
